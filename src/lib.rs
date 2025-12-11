@@ -3,6 +3,8 @@ pub mod supervisor {
     pub mod ledger;
 }
 
+pub mod runtime_bridge;
+
 #[cfg(test)]
 mod tests {
     use crate::supervisor::interceptor::{Interceptor, TokenStream};

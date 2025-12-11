@@ -1,3 +1,4 @@
+use axiom_hive_core::runtime_bridge::ExternalPythonRuntime;
 use axiom_hive_core::supervisor::interceptor::{Interceptor, TokenStream};
 use axiom_hive_core::supervisor::ledger::Ledger;
 use serde::Deserialize;
@@ -58,27 +59,34 @@ fn main() {
 
     let interceptor = Interceptor::new(&disallowed_tokens);
 
-    // 3) Simulate a model output as a token list.
-    let tokens: Vec<String> = vec![
-        "the".into(),
-        "user".into(),
-        "email".into(),
-        "is".into(),
-        "alice@example.com".into(),
-        "phone".into(),
-        "123-456".into(),
-    ];
+    // 3) Delegate to the Python runtime to generate a best-of-N answer.
+    let runtime = ExternalPythonRuntime::default_instance();
+    let prompt = "demo_prompt: what is the Axiom Hive Core?";
+    let answer_text = match runtime.generate(prompt) {
+        Ok(text) => text,
+        Err(e) => {
+            eprintln!("Python runtime failed ({e}), falling back to local stub.");
+            "Fallback answer for demo.".to_string()
+        }
+    };
+
+    let tokens: Vec<String> = answer_text
+        .split_whitespace()
+        .map(|s| s.to_string())
+        .collect();
     let stream = TokenStream { tokens: &tokens };
 
     let filtered = interceptor.filter(stream);
 
+    println!("Prompt          : {}", prompt);
+    println!("Runtime answer  : {}", answer_text);
     println!("Original tokens : {:?}", tokens);
     println!("Filtered tokens : {:?}", filtered);
 
     // 4) Append an entry to the ledger capturing this supervised interaction.
     let mut ledger = Ledger::new();
     let joined_filtered = filtered.join(" ");
-    let entry = ledger.append("demo_prompt", &joined_filtered);
+    let entry = ledger.append(prompt, &joined_filtered);
 
     println!(
         "Ledger entry => index={}, hash={}, prev_hash={}, input_hash={}, output_hash={}",
