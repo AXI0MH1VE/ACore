@@ -1,6 +1,7 @@
 use std::fs;
 use std::path::Path;
 
+use axiom_hive_core::runtime_bridge::ExternalPythonRuntime;
 use axiom_hive_core::supervisor::interceptor::{Interceptor, TokenStream};
 use axiom_hive_core::supervisor::ledger::Ledger;
 use serde::Deserialize;
@@ -62,7 +63,6 @@ fn main() {
 
     // Load constitution-driven settings.
     let constitution = load_constitution("config/constitution.toml");
-    let max_branches = constitution.supervisor.max_branches.max(1);
 
     // For demo, we derive a token blacklist from policy (very simplistic).
     let mut disallowed_tokens: Vec<&str> = vec![];
@@ -77,22 +77,21 @@ fn main() {
     let interceptor = Interceptor::new(&disallowed_tokens);
     let mut ledger = Ledger::new();
 
-    // Branch search (stub): generate deterministic variants of the prompt
-    // and pick the longest one as "best".
-    let mut best_text = String::new();
-    let mut best_score = f32::MIN;
-
-    for i in 0..max_branches {
-        let candidate = format!("[branch {i}] {prompt}");
-        let score = candidate.len() as f32; // trivial scoring
-        if score > best_score {
-            best_score = score;
-            best_text = candidate;
+    // Delegate to external Python runtime (BranchManager CLI).
+    let runtime = ExternalPythonRuntime::default_instance();
+    let answer_text = match runtime.generate(&prompt) {
+        Ok(text) => text,
+        Err(e) => {
+            eprintln!("Python runtime failed ({e}), falling back to local stub.");
+            format!("[fallback] {prompt}")
         }
-    }
+    };
 
     // Token-level interception.
-    let tokens: Vec<String> = best_text.split_whitespace().map(|s| s.to_string()).collect();
+    let tokens: Vec<String> = answer_text
+        .split_whitespace()
+        .map(|s| s.to_string())
+        .collect();
     let filtered_tokens = interceptor.filter(TokenStream { tokens: &tokens });
     let supervised_output = filtered_tokens.join(" ");
 
