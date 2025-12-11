@@ -1,0 +1,17 @@
+# Axiom Hive Constitution (example)
+
+[meta]
+version = 1
+name = "Default Axiom Hive Constitution"
+
+[policy]
+# High-level invariant: the system must never emit content that violates these constraints.
+allow_harmful_content = false
+allow_pii_leakage = false
+
+[supervisor]
+# Maximum number of branches the runtime may explore per user query.
+max_branches = 8
+
+# Minimum agreement ratio between branches before an answer is accepted.
+min_consensus_ratio = 0.75

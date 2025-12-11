@@ -1,0 +1,7 @@
+torch>=2.2.0
+mamba-ssm>=2.0.0
+causal-conv1d>=1.2.0
+tla-tools>=1.0.0
+numpy
+cryptography
+pytest
