@@ -106,6 +106,8 @@ This is useful as an integration smoke test and as a reference for integrating t
 - `docs/whitepaper_v1.md` – structured whitepaper describing the broader Axiom Hive architecture.
 - `docs/architecture.md` – implementation‑level view of this repository.
 - `docs/USAGE.md` – focused usage guide with concrete commands and flows.
+- `docs/INVARIANTS.md` – determinism and auditability guarantees.
+- `docs/OPS.md` – operational guidance for running Axiom Hive Core.
 
 ## Design principles
 

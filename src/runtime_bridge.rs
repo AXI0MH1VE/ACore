@@ -1,6 +1,25 @@
 use std::env;
 use std::io::Write;
-use std::process::{Command, Stdio};
+use std::process::{Command, ExitStatus, Stdio};
+
+#[derive(Debug, thiserror::Error)]
+pub enum RuntimeError {
+    #[error("failed to spawn runtime process: {0}")]
+    SpawnFailed(#[source] std::io::Error),
+    #[error("failed to write prompt to runtime: {0}")]
+    StdinIo(#[source] std::io::Error),
+    #[error("failed to read runtime output: {0}")]
+    OutputIo(#[source] std::io::Error),
+    #[error("runtime exited with non-zero status: {0}")]
+    NonZeroExit(ExitStatus),
+    #[error("runtime output was not valid UTF-8: {0}")]
+    Utf8(#[source] std::string::FromUtf8Error),
+}
+
+/// Trait for untrusted runtimes.
+pub trait UntrustedRuntime {
+    fn generate(&self, prompt: &str) -> Result<String, RuntimeError>;
+}
 
 /// Simple bridge that calls the Python BranchManager CLI.
 ///
@@ -21,40 +40,38 @@ impl ExternalPythonRuntime {
     pub fn default_instance() -> Self {
         Self::new()
     }
+}
 
+impl UntrustedRuntime for ExternalPythonRuntime {
     /// Generate text for a prompt by delegating to the Python runtime.
-    pub fn generate(&self, prompt: &str) -> Result<String, String> {
+    fn generate(&self, prompt: &str) -> Result<String, RuntimeError> {
         let mut child = Command::new(&self.python_bin)
             .arg("src/runtime/cli.py")
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::inherit())
             .spawn()
-            .map_err(|e| format!("failed to spawn python runtime: {e}"))?;
+            .map_err(RuntimeError::SpawnFailed)?;
 
         {
             let stdin = child
                 .stdin
                 .as_mut()
-                .ok_or_else(|| "failed to open stdin for python runtime".to_string())?;
+                .ok_or_else(|| RuntimeError::StdinIo(std::io::Error::new(std::io::ErrorKind::BrokenPipe, "stdin not available")))?;
             stdin
                 .write_all(prompt.as_bytes())
-                .map_err(|e| format!("failed to write prompt to python runtime: {e}"))?;
+                .map_err(RuntimeError::StdinIo)?;
         }
 
         let output = child
             .wait_with_output()
-            .map_err(|e| format!("failed to read python runtime output: {e}"))?;
+            .map_err(RuntimeError::OutputIo)?;
 
         if !output.status.success() {
-            return Err(format!(
-                "python runtime exited with status {}",
-                output.status
-            ));
+            return Err(RuntimeError::NonZeroExit(output.status));
         }
 
-        let text = String::from_utf8(output.stdout)
-            .map_err(|e| format!("python runtime output was not valid UTF-8: {e}"))?;
+        let text = String::from_utf8(output.stdout).map_err(RuntimeError::Utf8)?;
 
         Ok(text.trim().to_string())
     }

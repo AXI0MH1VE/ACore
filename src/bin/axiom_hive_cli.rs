@@ -1,48 +1,7 @@
-use std::fs;
-use std::path::Path;
-
-use axiom_hive_core::runtime_bridge::ExternalPythonRuntime;
+use axiom_hive_core::constitution::{Constitution, ConstitutionError};
+use axiom_hive_core::runtime_bridge::{ExternalPythonRuntime, RuntimeError, UntrustedRuntime};
 use axiom_hive_core::supervisor::interceptor::{Interceptor, TokenStream};
 use axiom_hive_core::supervisor::ledger::Ledger;
-use serde::Deserialize;
-
-#[derive(Debug, Deserialize)]
-struct Constitution {
-    #[serde(default)]
-    policy: Policy,
-    #[serde(default)]
-    supervisor: SupervisorCfg,
-}
-
-#[derive(Debug, Deserialize, Default)]
-struct Policy {
-    #[serde(default)]
-    allow_harmful_content: bool,
-    #[serde(default)]
-    allow_pii_leakage: bool,
-}
-
-#[derive(Debug, Deserialize)]
-struct SupervisorCfg {
-    #[serde(default = "default_max_branches")]    
-    max_branches: u32,
-    #[serde(default = "default_min_consensus_ratio")]    
-    min_consensus_ratio: f32,
-}
-
-impl Default for SupervisorCfg {
-    fn default() -> Self {
-        Self { max_branches: default_max_branches(), min_consensus_ratio: default_min_consensus_ratio() }
-    }
-}
-
-fn default_max_branches() -> u32 { 4 }
-fn default_min_consensus_ratio() -> f32 { 0.75 }
-
-fn load_constitution<P: AsRef<Path>>(path: P) -> Constitution {
-    let text = fs::read_to_string(path).expect("failed to read constitution.toml");
-    toml::from_str(&text).expect("invalid constitution.toml")
-}
 
 fn main() {
     // Simple CLI: read prompt from args or stdin.
@@ -58,21 +17,27 @@ fn main() {
 
     if prompt.is_empty() {
         eprintln!("No prompt provided.");
-        return;
+        std::process::exit(1);
     }
 
     // Load constitution-driven settings.
-    let constitution = load_constitution("config/constitution.toml");
+    let constitution = match Constitution::load("config/constitution.toml") {
+        Ok(c) => c,
+        Err(e) => {
+            match e {
+                ConstitutionError::Io { .. } | ConstitutionError::Parse(_) => {
+                    eprintln!("Configuration error: {e}");
+                }
+                _ => {
+                    eprintln!("Invalid constitution: {e}");
+                }
+            }
+            std::process::exit(2);
+        }
+    };
 
-    // For demo, we derive a token blacklist from policy (very simplistic).
-    let mut disallowed_tokens: Vec<&str> = vec![];
-    if !constitution.policy.allow_harmful_content {
-        disallowed_tokens.push("kill");
-        disallowed_tokens.push("attack");
-    }
-    if !constitution.policy.allow_pii_leakage {
-        disallowed_tokens.push("ssn");
-    }
+    // Derive a token blacklist from policy.
+    let disallowed_tokens = constitution.disallowed_tokens();
 
     let interceptor = Interceptor::new(&disallowed_tokens);
     let mut ledger = Ledger::new();
@@ -82,7 +47,11 @@ fn main() {
     let answer_text = match runtime.generate(&prompt) {
         Ok(text) => text,
         Err(e) => {
-            eprintln!("Python runtime failed ({e}), falling back to local stub.");
+            match e {
+                RuntimeError::NonZeroExit(_) => eprintln!("Runtime exited with non-zero status: {e}"),
+                _ => eprintln!("Runtime failure: {e}"),
+            }
+            // Fallback keeps the pipeline deterministic and auditable.
             format!("[fallback] {prompt}")
         }
     };

@@ -1,45 +1,13 @@
-use axiom_hive_core::runtime_bridge::ExternalPythonRuntime;
+use axiom_hive_core::constitution::Constitution;
+use axiom_hive_core::runtime_bridge::{ExternalPythonRuntime, RuntimeError, UntrustedRuntime};
 use axiom_hive_core::supervisor::interceptor::{Interceptor, TokenStream};
 use axiom_hive_core::supervisor::ledger::Ledger;
-use serde::Deserialize;
-use std::fs;
 use std::path::Path;
-
-#[derive(Debug, Deserialize)]
-struct Meta {
-    name: String,
-    version: u32,
-}
-
-#[derive(Debug, Deserialize)]
-struct Policy {
-    allow_harmful_content: bool,
-    allow_pii_leakage: bool,
-}
-
-#[derive(Debug, Deserialize)]
-struct SupervisorCfg {
-    max_branches: u32,
-    min_consensus_ratio: f32,
-}
-
-#[derive(Debug, Deserialize)]
-struct Constitution {
-    meta: Meta,
-    policy: Policy,
-    supervisor: SupervisorCfg,
-}
-
-fn load_constitution(path: &Path) -> Constitution {
-    let raw = fs::read_to_string(path)
-        .unwrap_or_else(|e| panic!("failed to read constitution from {}: {e}", path.display()));
-    toml::from_str(&raw).expect("failed to parse constitution.toml")
-}
 
 fn main() {
     // 1) Load constitution
     let path = Path::new("config/constitution.toml");
-    let constitution = load_constitution(path);
+    let constitution = Constitution::load(path).expect("failed to load constitution");
 
     println!(
         "Loaded constitution: {} (v{}), max_branches={}, min_consensus_ratio={}",
@@ -49,13 +17,8 @@ fn main() {
         constitution.supervisor.min_consensus_ratio
     );
 
-    // 2) Configure interceptor from policy (very simple mapping for now)
-    // If PII leakage is not allowed, we "ban" some toy tokens that represent PII.
-    let disallowed_tokens: Vec<&str> = if constitution.policy.allow_pii_leakage {
-        Vec::new()
-    } else {
-        vec!["email", "ssn", "phone"]
-    };
+    // 2) Configure interceptor from policy.
+    let disallowed_tokens = constitution.disallowed_tokens();
 
     let interceptor = Interceptor::new(&disallowed_tokens);
 
@@ -65,7 +28,10 @@ fn main() {
     let answer_text = match runtime.generate(prompt) {
         Ok(text) => text,
         Err(e) => {
-            eprintln!("Python runtime failed ({e}), falling back to local stub.");
+            match e {
+                RuntimeError::NonZeroExit(_) => eprintln!("Runtime exited with non-zero status: {e}"),
+                _ => eprintln!("Runtime failure: {e}"),
+            }
             "Fallback answer for demo.".to_string()
         }
     };
