@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="220" height="32" viewBox="0 0 220 32" role="img" aria-labelledby="title desc">
+  <title id="title">Axiom Hive Core badge</title>
+  <desc id="desc">Compact badge for embedding in external READMEs and sites.</desc>
+  <rect width="220" height="32" rx="4" ry="4" fill="#050608" />
+  <rect x="0.5" y="0.5" width="219" height="31" rx="3.5" ry="3.5" fill="none" stroke="#2a2f3a" stroke-width="1" />
+  <g fill="none" stroke="#f5f5f5" stroke-width="1.4" transform="translate(10,6) scale(0.55)">
+    <polygon points="48,128 16,96 32,32 64,32 80,96" />
+    <line x1="32" y1="32" x2="64" y2="96" />
+    <line x1="64" y1="32" x2="32" y2="96" />
+  </g>
+  <text x="64" y="21" fill="#f5f5f5" font-family="'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace" font-size="12" letter-spacing="2">
+    AXIOM HIVE CORE
+  </text>
+</svg>

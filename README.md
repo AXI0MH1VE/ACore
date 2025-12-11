@@ -123,3 +123,17 @@ For the full philosophical and regulatory framing, see `docs/whitepaper_v1.md`.
 ## License
 
 This project is licensed under the MIT License. See `LICENSE` for details.
+
+## Branding assets
+
+The `assets/` directory contains simple SVG assets for reuse:
+
+- `assets/axiom-hive-wordmark.svg` – dark‑background wordmark used in this README.
+- `assets/axiom-hive-wordmark-light.svg` – light‑background variant for embedding on light sites.
+- `assets/axiom-hive-badge.svg` – compact badge suitable for external READMEs or documentation.
+
+Example markdown for the badge:
+
+```markdown
+[![Axiom Hive Core](assets/axiom-hive-badge.svg)](https://github.com/AXI0MH1VE/ACore)
+```
