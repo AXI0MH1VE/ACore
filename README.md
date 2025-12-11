@@ -101,6 +101,7 @@ This is useful as an integration smoke test and as a reference for integrating t
 - `config/constitution.toml` – example constitution.
 - `docs/whitepaper_v1.md` – structured whitepaper describing the broader Axiom Hive architecture.
 - `docs/architecture.md` – implementation‑level view of this repository.
+- `docs/USAGE.md` – focused usage guide with concrete commands and flows.
 
 ## Design principles
 
