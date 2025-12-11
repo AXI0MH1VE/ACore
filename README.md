@@ -1,5 +1,9 @@
 # Axiom Hive Core
 
+<p align="center">
+  <img src="assets/axiom-hive-wordmark.svg" alt="Axiom Hive Core wordmark" width="480" />
+</p>
+
 Deterministic supervisor for untrusted runtimes.
 
 Axiom Hive Core is a reference implementation of the Axiom Hive architecture: a **cryptographically auditable, policy‑driven supervisor** that wraps any LLM or sampling runtime. It turns a probabilistic generator into a constrained, verifiable system.
